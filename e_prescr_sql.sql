@@ -13,7 +13,7 @@ WITH a AS (SELECT DISTINCT epm.lp_id::int, epm.lp_name, COUNT(*)::int AS cnt_id_
                FROM common_analytics2.e_prescription_mart_1 epm
                GROUP BY 1, 2)
    , b AS (SELECT DISTINCT epm.lp_name, COUNT(*)::int AS cnt_name
-               FROM common_analytics2.e_prescription_mart_1 epm
+               FROM common_analytics2.e_prescription_mart_1 epm --это наша основная витрина
                GROUP BY 1)
 SELECT DISTINCT a.lp_id, a.lp_name, a.cnt_id_name, b.cnt_name
     FROM b
