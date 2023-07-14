@@ -23,12 +23,12 @@ SELECT DISTINCT a.lp_id, a.lp_name, a.cnt_id_name, b.cnt_name
 GRANT SELECT ON public.e_prescr_preps to gpuser;
 
 
---МНН и ТНН
+--1.1. Применяется мэтчинг МНН и ТНН
 drop TABLE IF EXISTS common_analytics2.e_prescr_join_union11;
 drop TABLE IF EXISTS common_analytics2.e_prescr_join_union12;
 drop TABLE IF EXISTS common_analytics2.e_prescr_join_union;
 
-CREATE TABLE common_analytics2.e_prescr_join_union11 AS
+CREATE TABLE common_analytics2.e_prescr_join_union11 AS --идёт мэтчинг по ИД МНН + наименование МНН при помощи Левенштайна
 SELECT DISTINCT epp.lp_id, epp.lp_name, nm1.mnn_id, nm1.rus_mnn_title, nm1.lat_mnn_title, 'mnn_join_lev' AS source
     FROM public.e_prescr_preps epp
              JOIN common_analytics2.drug_classifier_nsi nm1
@@ -44,7 +44,7 @@ SELECT DISTINCT epp.lp_id, epp.lp_name, nm1.mnn_id, nm1.rus_mnn_title, nm1.lat_m
 
 GRANT SELECT ON common_analytics2.e_prescr_join_union11 to gpuser;
 
-CREATE TABLE common_analytics2.e_prescr_join_union12 AS
+CREATE TABLE common_analytics2.e_prescr_join_union12 AS --идёт мэтчинг по ИД торгового наименования (ТНН) + наименование ТНН при помощи Левенштайна
 SELECT DISTINCT epp.lp_id, epp.lp_name, nm.mnn_id, nm.rus_mnn_title, nm.lat_mnn_title, 'tnn_join_lev' AS source
     FROM public.e_prescr_preps epp
              JOIN common_analytics2.drug_classifier_nsi nm
@@ -72,7 +72,7 @@ SELECT *
 
 GRANT SELECT ON common_analytics2.e_prescr_join_union to gpuser;
 
---Подстрока
+--1.2. Применяется подстрока
 
 DROP TABLE IF EXISTS common_analytics2.e_prescr_join_union2;
 DROP TABLE IF EXISTS common_analytics2.e_prescr_join_union21;
@@ -85,7 +85,7 @@ CREATE TABLE common_analytics2.e_prescr_join_union21 AS
 SELECT DISTINCT epp.lp_id, epp.lp_name, nm.mnn_id, nm.rus_mnn_title, nm.lat_mnn_title, 'substring_join'::text AS source
     FROM public.e_prescr_preps epp
              JOIN common_analytics2.drug_classifier_nsi nm
-                  ON LOWER(REPLACE(REGEXP_REPLACE(SPLIT_PART(epp.lp_name, SUBSTRING(epp.lp_name, ' \d+'), 1), '[a-zA-Z]*\..*', '', 'g'), ' ', ''))
+                  ON LOWER(REPLACE(REGEXP_REPLACE(SPLIT_PART(epp.lp_name, SUBSTRING(epp.lp_name, ' \d+'), 1), '[a-zA-Z]*\..*', '', 'g'), ' ', '')) --суть - мы проверяем, входит ли систематизированное наименование лексредства в поле с его наименованием в витрине
                       = LOWER(REPLACE(nm.lat_genitivus, ' ', ''))
     WHERE epp.lp_name NOT IN (SELECT u.lp_name
                                   FROM common_analytics2.e_prescr_join_union u);
@@ -204,7 +204,7 @@ SELECT DISTINCT a.lp_id, a.lp_name, a.mnn_id, a.rus_mnn_title, a.lat_mnn_title, 
 
 DROP TABLE IF EXISTS common_analytics2.prescription_sale;
 
-CREATE TABLE common_analytics2.prescription_sale AS
+CREATE TABLE common_analytics2.prescription_sale AS --делаем таблицу с номером рецепта и датой отпуска препарата в аптеке по этому рецепту
 SELECT DISTINCT r.number_, s.sale_date::date
     FROM ods_llo_ora.emias_llo__prescription r
              LEFT JOIN ods_llo_ora.emias_llo__prescription_servicing s
@@ -212,4 +212,6 @@ SELECT DISTINCT r.number_, s.sale_date::date
                            AND s.hdp_active_flg = '1';
 
 GRANT SELECT ON common_analytics2.prescription_sale TO gpuser;
-
+--Затем получившиеся таблицы используются при построении модифицированной витрины по электронным рецептам, в которой, в отличие от первоначальной, уже присутствуют:
+1) расшифровки МНН (я добился полноты заполнения в 99,8% при целевом показателе 99%);
+2) дата отпуска препарата из аптеки (здесь полнота похуже, но с этим я уже ничего поделать не могу - тут либо есть данные об отпуске из аптеки, либо их, по тем или иным причинам, нет).
